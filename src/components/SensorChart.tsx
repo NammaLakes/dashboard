@@ -27,7 +27,7 @@ const SensorChart = ({ sensorId, title = "Sensor Readings (24h)" }: SensorChartP
             <YAxis
               stroke="#888888"
               fontSize={12}
-              tickFormatter={(value) => `${value.toFixed(1)}`}
+              tickFormatter={(value) => typeof value === 'number' ? `${value.toFixed(1)}` : value}
             />
             <Tooltip
               content={({ active, payload }) => {
@@ -40,7 +40,7 @@ const SensorChart = ({ sensorId, title = "Sensor Readings (24h)" }: SensorChartP
                             Temperature
                           </span>
                           <span className="font-bold text-muted-foreground">
-                            {payload[0].value?.toFixed(1)}°C
+                            {typeof payload[0].value === 'number' ? `${payload[0].value.toFixed(1)}°C` : payload[0].value}
                           </span>
                         </div>
                         <div className="flex flex-col">
@@ -48,7 +48,7 @@ const SensorChart = ({ sensorId, title = "Sensor Readings (24h)" }: SensorChartP
                             pH
                           </span>
                           <span className="font-bold text-muted-foreground">
-                            {payload[1].value?.toFixed(1)}
+                            {typeof payload[1].value === 'number' ? `${payload[1].value.toFixed(1)}` : payload[1].value}
                           </span>
                         </div>
                       </div>
