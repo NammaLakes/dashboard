@@ -5,6 +5,7 @@ import { generateTimeSeriesData } from "@/lib/mock-data";
 interface SensorChartProps {
   sensorId?: string;
   title?: string;
+  metric?: string;
 }
 
 const SensorChart = ({ sensorId, title = "Sensor Readings (24h)" }: SensorChartProps) => {

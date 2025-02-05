@@ -4,7 +4,11 @@ import 'leaflet/dist/leaflet.css';
 import { mockSensors } from '@/lib/mock-data';
 import { useNavigate } from 'react-router-dom';
 
-const SensorMap = () => {
+interface SensorMapProps {
+  singleMarker?: { lat: number; lng: number };
+}
+
+const SensorMap = ({ singleMarker }: SensorMapProps) => {
   const mapContainer = useRef(null);
   const map = useRef(null);
   const navigate = useNavigate();
@@ -13,13 +17,12 @@ const SensorMap = () => {
     if (!mapContainer.current) return;
 
     map.current = L.map(mapContainer.current).setView(
-      [mockSensors[0].location.lat, mockSensors[0].location.lng],
+      singleMarker ? [singleMarker.lat, singleMarker.lng] : [mockSensors[0].location.lat, mockSensors[0].location.lng],
       12
     );
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a>',
-      subdomains: 'abcd',
-      maxZoom: 19
+    L.tileLayer('https://tiles.stadiamaps.com/tiles/stamen_toner_lite/{z}/{x}/{y}{r}.png', {
+      minZoom: 0,
+      maxZoom: 22,
     }).addTo(map.current);
 
     mockSensors.forEach((sensor) => {
@@ -39,6 +42,11 @@ const SensorMap = () => {
         </div>`
       );
 
+      marker.bindTooltip(sensor.name, {
+        permanent: false,
+        direction: 'top'
+      });
+
       marker.on('click', () => {
         navigate(`/sensor/${sensor.id}`);
       });
@@ -49,7 +57,7 @@ const SensorMap = () => {
         map.current.remove();
       }
     };
-  }, [navigate]);
+  }, [navigate, singleMarker]);
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden">
