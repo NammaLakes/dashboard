@@ -11,23 +11,31 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b">
+      {/* Header */}
+      <header className="border-b bg-white shadow-sm">
         <div className="container flex h-16 items-center justify-between">
           <h1 className="text-xl font-bold">Lake Monitoring Dashboard</h1>
-          <Button variant="ghost" onClick={logout}>
+          <Button variant="ghost" onClick={logout} className="flex items-center">
             <LogOut className="mr-2 h-4 w-4" />
             Logout
           </Button>
         </div>
       </header>
-      
-      <main className="container py-6 space-y-6">
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="space-y-6">
+
+      {/* Main Content */}
+      <main className="container py-4">
+        <div className="grid gap-4 md:grid-cols-3">
+          {/* Metrics on top */}
+          <div className="md:col-span-3">
             <MetricsCards />
+          </div>
+
+          {/* Map on left, alerts and chart on right */}
+          <div className="md:col-span-2">
             <SensorMap />
           </div>
-          <div className="space-y-6">
+
+          <div className="space-y-4">
             <AlertsList />
             <SensorChart />
           </div>

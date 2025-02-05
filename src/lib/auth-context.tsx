@@ -16,7 +16,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   const login = (password: string) => {
-    // In a real app, this would be a proper authentication call
     if (password === 'admin') {
       setIsAuthenticated(true);
       navigate('/dashboard');
