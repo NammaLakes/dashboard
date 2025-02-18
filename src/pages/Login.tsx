@@ -4,8 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Waves } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import i18n from '@/lib/i18n';
 
 const Login = () => {
+  const { t } = useTranslation();
+
+  const changeLanguage = (lng: string) => {
+    i18n.changeLanguage(lng);
+  };
+
   const [password, setPassword] = useState('');
   const { login } = useAuth();
 
@@ -20,8 +28,8 @@ const Login = () => {
       <div className="flex justify-center mb-4">
       <Waves className="h-12 w-12 text-blue-500" />
       </div>
-      <CardTitle className="text-blue-500 text-2xl">Lake Monitoring System</CardTitle>
-      <CardDescription className="text-gray-500">Enter your password to continue</CardDescription>
+      <CardTitle className="text-blue-500 text-2xl">{t('welcome')}</CardTitle>
+      <CardDescription className="text-gray-500">{t('password_phrase')}</CardDescription>
       </CardHeader>
       <CardContent>
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -36,6 +44,14 @@ const Login = () => {
         Login
       </Button>
       </form>
+      <div className="flex justify-end">
+      <Button onClick={() => changeLanguage('en')} className="text-blue-500">
+        English
+      </Button>
+      <Button onClick={() => changeLanguage('kn')} className="text-blue-500 ml-2">
+        ಕನ್ನಡ
+      </Button>
+      </div>
       </CardContent>
       </Card>
     </div>
