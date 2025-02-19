@@ -5,19 +5,21 @@ import SensorMap from '@/components/SensorMap';
 import MetricsCards from '@/components/MetricsCards';
 import AlertsList from '@/components/AlertsList';
 import SensorChart from '@/components/SensorChart';
+import { useTranslation } from "react-i18next";
 
 const Dashboard = () => {
   const { logout } = useAuth();
+  const { t } = useTranslation();
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b bg-white shadow-sm">
         <div className="container flex h-16 items-center justify-between">
-          <h1 className="text-xl font-bold">Lake Monitoring Dashboard</h1>
+          <h1 className="text-xl font-bold">{t("dashboardTitle")}</h1>
           <Button variant="ghost" onClick={logout} className="flex items-center">
             <LogOut className="mr-2 h-4 w-4" />
-            Logout
+            {t("logout")}
           </Button>
         </div>
       </header>

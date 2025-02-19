@@ -1,5 +1,22 @@
 {
   "welcome": "Welcome",
   "language": "Language",
-  "password_phrase": "Enter your password to continue"
+  "password_phrase": "Enter your password to continue",
+   "logout": "Logout",
+  "dashboardTitle": "Lake Monitoring Dashboard",
+  "sensorNotFound": "Sensor Not Found",
+  "backToDashboard": "Back to Dashboard",
+  "active": "Active",
+  "warning": "Warning",
+  "inactive": "Inactive",
+  "temperature": "Temperature",
+  "pHLevel": "pH Level",
+  "oxygenLevel": "Oxygen Level",
+  "lastUpdate": "Last Update",
+  "sensorLocation": "Sensor Location",
+  "latitude": "Latitude",
+  "longitude": "Longitude",
+  "temperatureTrends": "Temperature Trends",
+  "pHLevelTrends": "pH Level Trends",
+  "oxygenLevelTrends": "Oxygen Level Trends"
 }

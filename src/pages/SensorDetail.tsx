@@ -5,17 +5,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Thermometer, Droplet, Wind, Activity, MapPin } from 'lucide-react';
 import SensorChart from '@/components/SensorChart';
 import SensorMap from '@/components/SensorMap';
+import { useTranslation } from "react-i18next"
+
 
 const SensorDetail = () => {
+  const { t } = useTranslation();
   const { id } = useParams();
   const sensor = mockSensors.find(s => s.id === id);
 
   if (!sensor) {
     return (
       <div className="container py-6">
-        <h1 className="text-xl font-bold">Sensor Not Found</h1>
+        <h1 className="text-xl font-bold">{t("sensorNotFound")}</h1>
         <Link to="/dashboard">
-          <Button variant="link">Back to Dashboard</Button>
+          <Button variant="link">{t("backToDashboard")}</Button>
         </Link>
       </div>
     );
@@ -51,7 +54,7 @@ const SensorDetail = () => {
               {/* Temperature */}
               <Card className="h-full">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium">Temperature</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t("temperature")}</CardTitle>
                   <Thermometer className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -62,7 +65,7 @@ const SensorDetail = () => {
               {/* pH Level */}
               <Card className="h-full">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium">pH Level</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t("pHLevel")}</CardTitle>
                   <Droplet className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -73,7 +76,7 @@ const SensorDetail = () => {
               {/* Oxygen Level */}
               <Card className="h-full">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium">Oxygen Level</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t("oxygenLevel")}</CardTitle>
                   <Wind className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -84,7 +87,7 @@ const SensorDetail = () => {
               {/* Last Update */}
               <Card className="h-full">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium">Last Update</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t("lastUpdate")}</CardTitle>
                   <Activity className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -100,11 +103,11 @@ const SensorDetail = () => {
           <div className="space-y-6">
             <Card className="h-full">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Sensor Location</CardTitle>
+                <CardTitle className="text-sm font-medium">{t("sensorLocation")}</CardTitle>
                 <MapPin className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <p className="text-sm font-medium">Lat: {sensor.location.lat}, lng: {sensor.location.lng}</p>
+                <p className="text-sm font-medium">{t("latitude")}: {sensor.location.lat}, {t("longitude")}: {sensor.location.lng}</p>
                 <div className="h-60 rounded-lg overflow-hidden mt-2">
                   <SensorMap singleMarker={{ lat: sensor.location.lat, lng: sensor.location.lng }} />
                 </div>
@@ -115,9 +118,9 @@ const SensorDetail = () => {
 
         {/* Graphs (Bottom) */}
         <div className="space-y-6">
-          <SensorChart sensorId={sensor.id} title="Temperature Trends" metric="temperature" />
-          <SensorChart sensorId={sensor.id} title="pH Level Trends" metric="pH" />
-          <SensorChart sensorId={sensor.id} title="Oxygen Level Trends" metric="oxygenLevel" />
+          <SensorChart sensorId={sensor.id} title={t("temperatureTrends")} metric="temperature" />
+          <SensorChart sensorId={sensor.id} title={t("pHLevelTrends")} metric="pH" />
+          <SensorChart sensorId={sensor.id} title={t("oxygenLevelTrends")} metric="oxygenLevel" />
         </div>
       </main>
     </div>

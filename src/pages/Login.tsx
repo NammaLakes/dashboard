@@ -16,6 +16,10 @@ const Login = () => {
 
   const [password, setPassword] = useState('');
   const { login } = useAuth();
+  const handleLanguageChange = (lang: string) => {
+    i18n.changeLanguage(lang);
+    localStorage.setItem("language", lang); // Save selected language to localStorage
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,6 +59,8 @@ const Login = () => {
       </CardContent>
       </Card>
     </div>
+    
+    
   );
 };
 
