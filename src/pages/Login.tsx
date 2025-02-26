@@ -48,13 +48,13 @@ const Login = () => {
         Login
       </Button>
       </form>
-      <div className="flex justify-end">
-      <Button onClick={() => changeLanguage('en')} className="text-blue-500">
-        English
-      </Button>
-      <Button onClick={() => changeLanguage('kn')} className="text-blue-500 ml-2">
-        ಕನ್ನಡ
-      </Button>
+      <div className="flex justify-end space-x-2 mt-4">
+        <Button onClick={() => changeLanguage('en')} className="text-white rounded-xl">
+          English
+        </Button>
+        <Button onClick={() => changeLanguage('kn')} className="text-white rounded-xl">
+          ಕನ್ನಡ
+        </Button>
       </div>
       </CardContent>
       </Card>
