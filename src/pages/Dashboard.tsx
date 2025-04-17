@@ -39,7 +39,7 @@ const Dashboard = () => {
 
           <div className="space-y-4">
             <AlertsList />
-            <SensorChart />
+            <SensorChart title="Average Temperature (Real-time)" metric="temperature" />
           </div>
         </div>
       </main>

@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./lib/auth-context";
+import { WebSocketProvider } from "./lib/websocket-context"; // Import the provider
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import SensorDetail from "./pages/SensorDetail";
@@ -49,7 +50,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <AppRoutes />
+          <WebSocketProvider> {/* Wrap routes with WebSocketProvider */}
+            <AppRoutes />
+          </WebSocketProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
