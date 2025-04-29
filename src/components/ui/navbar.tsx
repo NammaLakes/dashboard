@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LogOut, Globe } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
@@ -14,11 +14,17 @@ const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
   const { logout } = useAuth();
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
+  const currentPath = location.pathname;
 
   const changeLanguage = (lng: string) => {
     i18n.changeLanguage(lng);
     localStorage.setItem("language", lng);
     if (onNavigate) onNavigate(); // Close sidebar on mobile
+  };
+
+  const isActive = (path: string) => {
+    return currentPath.startsWith(path);
   };
 
   return (
@@ -36,7 +42,11 @@ const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
               navigate("/dashboard");
               onNavigate?.();
             }}
-            className="flex items-center px-3 py-2 text-sm font-medium rounded-md bg-primary/10 text-primary hover:bg-primary/20 w-full text-left"
+            className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+              isActive("/dashboard")
+                ? "bg-primary/10 text-primary"
+                : "hover:bg-muted"
+            } w-full text-left`}
           >
             {t("Dashboard")}
           </button>
@@ -45,7 +55,11 @@ const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
               navigate("/sensors");
               onNavigate?.();
             }}
-            className="flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-muted w-full text-left"
+            className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+              isActive("/sensors")
+                ? "bg-primary/10 text-primary"
+                : "hover:bg-muted"
+            } w-full text-left`}
           >
             {t("Sensors")}
           </button>
@@ -54,7 +68,11 @@ const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
               navigate("/alerts");
               onNavigate?.();
             }}
-            className="flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-muted w-full text-left"
+            className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+              isActive("/alerts")
+                ? "bg-primary/10 text-primary"
+                : "hover:bg-muted"
+            } w-full text-left`}
           >
             {t("Alerts")}
           </button>

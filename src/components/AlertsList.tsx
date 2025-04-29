@@ -38,11 +38,11 @@ const AlertsList = ({ fullPage = false, className }: AlertsListProps) => {
   const getAlertIcon = (type: string) => {
     switch (type) {
       case 'error':
-        return <AlertCircle className="h-4 w-4 text-destructive" />;
+        return <AlertCircle className="h-5 w-5 text-destructive" />;
       case 'warning':
-        return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
+        return <AlertTriangle className="h-5 w-5 text-yellow-500" />;
       default:
-        return <Info className="h-4 w-4 text-blue-500" />;
+        return <Info className="h-5 w-5 text-blue-500" />;
     }
   };
   
@@ -70,11 +70,11 @@ const AlertsList = ({ fullPage = false, className }: AlertsListProps) => {
 
   return (
     <Card className={cn("overflow-hidden", className)}>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
+      <CardHeader className="flex flex-row items-center justify-between pb-3 space-y-0">
         <div className="flex items-center gap-2">
           <CardTitle className="text-base font-semibold">{t('recentAlerts')}</CardTitle>
           {filteredAlerts.length > 0 && (
-            <Badge variant="secondary" className="rounded-full px-2 text-xs font-normal">
+            <Badge variant="secondary" className="rounded-full px-2.5 py-0.5 text-xs font-medium">
               {filteredAlerts.length}
             </Badge>
           )}
@@ -84,12 +84,12 @@ const AlertsList = ({ fullPage = false, className }: AlertsListProps) => {
           {fullPage && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 gap-1">
-                  <Filter className="h-3.5 w-3.5" />
+                <Button variant="outline" size="sm" className="h-9 gap-1.5 font-medium">
+                  <Filter className="h-4 w-4" />
                   {filter ? t(filter) : t('filter')}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-40">
+              <DropdownMenuContent className="w-44">
                 <DropdownMenuLabel>{t('filterByType')}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
@@ -129,11 +129,12 @@ const AlertsList = ({ fullPage = false, className }: AlertsListProps) => {
             <Button 
               variant="outline" 
               size="sm" 
-              className="h-8"
+              className="h-9 font-medium"
               onClick={handleMarkAllAsRead}
               disabled={isLoading || alerts.length === 0}
             >
-              {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t('markAllRead')}
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+              {t('markAllRead')}
             </Button>
           )}
           
@@ -141,22 +142,25 @@ const AlertsList = ({ fullPage = false, className }: AlertsListProps) => {
             <Button 
               variant="ghost" 
               size="icon" 
-              className="h-8 w-8"
+              className="h-9 w-9"
               onClick={handleRefresh}
               disabled={isLoading}
             >
-              <Loader2 className={cn("h-4 w-4", isLoading && "animate-spin")} />
+              <Loader2 className={cn("h-4.5 w-4.5", isLoading && "animate-spin")} />
               <span className="sr-only">{t('refresh')}</span>
             </Button>
           )}
         </div>
       </CardHeader>
-      <CardContent>
-        <div className={cn("space-y-4", fullPage && "max-h-[70vh] overflow-auto pr-2")}>
+      <CardContent className={fullPage ? "p-0" : ""}>
+        <div className={cn(
+          "space-y-4", 
+          fullPage && "max-h-[70vh] overflow-auto p-6 pt-2"
+        )}>
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="mt-2 text-sm text-muted-foreground">{t('loading')}</p>
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Loader2 className="h-10 w-10 animate-spin text-primary opacity-70" />
+              <p className="mt-4 text-sm font-medium text-muted-foreground">{t('loading')}</p>
             </div>
           ) : alertsToShow.length > 0 ? (
             <AnimatePresence initial={false} mode="popLayout">
@@ -168,14 +172,14 @@ const AlertsList = ({ fullPage = false, className }: AlertsListProps) => {
                   exit={{ opacity: 0, height: 0, marginTop: 0 }}
                   transition={{ duration: 0.2 }}
                   className={cn(
-                    "flex items-center space-x-4 rounded-lg border p-3 pr-12 relative transition-all hover:bg-accent/50",
+                    "flex items-center space-x-4 rounded-lg border p-4 pr-12 relative transition-all hover:bg-accent/50 shadow-soft",
                     alert.type === 'error' && "border-destructive/50 bg-destructive/5",
                     alert.type === 'warning' && "border-yellow-500/50 bg-yellow-500/5",
                     alert.type === 'info' && "border-blue-500/50 bg-blue-500/5"
                   )}
                 >
                   <div className={cn(
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
                     alert.type === 'error' && "bg-destructive/10",
                     alert.type === 'warning' && "bg-yellow-500/10",
                     alert.type === 'info' && "bg-blue-500/10"
@@ -183,37 +187,37 @@ const AlertsList = ({ fullPage = false, className }: AlertsListProps) => {
                     {getAlertIcon(alert.type)}
                   </div>
                   <div className="flex-1 space-y-1">
-                    <p className="text-sm font-medium leading-none">{alert.message}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-sm font-medium leading-tight">{alert.message}</p>
+                    <p className="text-xs font-medium text-muted-foreground">
                       {new Date(alert.timestamp).toLocaleString()}
                     </p>
                   </div>
                   <Button 
                     size="icon" 
                     variant="ghost" 
-                    className="absolute right-2 top-2 h-6 w-6 opacity-70 hover:opacity-100"
+                    className="absolute right-2 top-2 h-7 w-7 opacity-70 hover:opacity-100 hover:bg-accent"
                     onClick={() => dismissAlert(alert.id)}
                   >
-                    <X className="h-3 w-3" />
+                    <X className="h-3.5 w-3.5" />
                     <span className="sr-only">{t('dismiss')}</span>
                   </Button>
                 </motion.div>
               ))}
             </AnimatePresence>
           ) : (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <div className="rounded-full bg-primary/10 p-3">
-                <Bell className="h-6 w-6 text-primary" />
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <div className="rounded-full bg-primary/10 p-4">
+                <Bell className="h-7 w-7 text-primary opacity-80" />
               </div>
-              <h3 className="mt-4 text-sm font-medium">{t('noAlerts')}</h3>
-              <p className="mt-2 text-xs text-muted-foreground">
+              <h3 className="mt-4 text-base font-medium">{t('noAlerts')}</h3>
+              <p className="mt-2 text-sm text-muted-foreground max-w-[250px]">
                 {t('allSystemsRunning')}
               </p>
               {fullPage && (
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="mt-4"
+                  className="mt-6"
                   onClick={handleRefresh}
                 >
                   {t('refreshAlerts')}
@@ -224,8 +228,13 @@ const AlertsList = ({ fullPage = false, className }: AlertsListProps) => {
         </div>
         
         {!fullPage && filteredAlerts.length > 3 && (
-          <div className="mt-4 text-center">
-            <Button variant="link" size="sm" onClick={() => navigate('/alerts')}>
+          <div className="mt-5 text-center">
+            <Button 
+              variant="link" 
+              size="sm" 
+              onClick={() => navigate('/alerts')}
+              className="font-medium text-primary"
+            >
               {t('viewAllAlerts', { count: filteredAlerts.length })}
             </Button>
           </div>

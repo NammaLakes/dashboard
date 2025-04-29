@@ -5,6 +5,7 @@ import Sidebar from "@/components/ui/navbar";
 import MetricsCards from "@/components/MetricsCards";
 import AlertsList from "@/components/AlertsList";
 import SensorMap from "@/components/SensorMap";
+import { Menu } from "lucide-react";
 
 const Dashboard = () => {
   const { t } = useTranslation();
@@ -38,57 +39,51 @@ const Dashboard = () => {
       )}
 
       {/* Desktop Sidebar */}
-      <div className="hidden md:flex md:flex-col w-64 bg-card border-r border-border shrink-0 h-screen sticky top-0 overflow-auto">
+      <div className="hidden md:flex md:flex-col w-64 bg-card border-r border-border shrink-0 h-screen sticky top-0 overflow-auto shadow-soft">
         <Sidebar />
       </div>
 
       {/* Main Content */}
       <div className="flex flex-col flex-1 w-full">
-        <main className="flex-1 p-4 md:p-6 overflow-auto">
+        <main className="flex-1 p-5 md:p-6 lg:p-8 overflow-auto">
           {/* Mobile Header */}
-          <div className="md:hidden flex items-center justify-between mb-4">
+          <div className="md:hidden flex items-center justify-between mb-6">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="p-2 rounded-md hover:bg-muted"
+              className="p-2 rounded-md hover:bg-muted transition-colors"
+              aria-label="Toggle menu"
             >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
+              <Menu className="w-6 h-6" />
             </button>
             <h2 className="text-xl font-bold">{t("dashboard")}</h2>
           </div>
 
           {/* Desktop Header */}
-          <div className="hidden md:flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold">{t("dashboard")}</h2>
+          <div className="hidden md:flex items-center justify-between mb-8">
+            <h2 className="text-3xl font-bold tracking-tight">{t("dashboard")}</h2>
+            <div className="flex space-x-2">
+              {/* Header actions could go here */}
+            </div>
           </div>
 
           {/* Metrics */}
-          <div className="mb-6">
+          <div className="mb-8">
             <MetricsCards />
           </div>
 
           {/* Main dashboard content */}
-          <div className="grid gap-6 md:grid-cols-3 lg:grid-cols-4">
+          <div className="grid gap-8 md:grid-cols-3 lg:grid-cols-4">
             <div
               ref={mapContainerRef}
-              className="md:col-span-2 lg:col-span-3"
+              className="md:col-span-2 lg:col-span-3 bg-card rounded-lg shadow-soft border border-border"
               style={{ height: "650px" }}
             >
               {isLoaded && <SensorMap />}
             </div>
-            <div className="space-y-15">
-              <AlertsList />
+            <div className="space-y-6">
+              <div className="bg-card rounded-lg shadow-soft border border-border overflow-hidden">
+                <AlertsList />
+              </div>
             </div>
           </div>
         </main>

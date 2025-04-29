@@ -19,5 +19,6 @@
   "temperatureTrends": "Temperature Trends",
   "pHLevelTrends": "pH Level Trends",
   "oxygenLevelTrends": "Oxygen Level Trends",
-  "dashboard": "Dashboard"
+  "dashboard": "Dashboard",
+  "recentAlerts": "Recent Alerts"
 }
