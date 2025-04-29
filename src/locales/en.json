@@ -2,7 +2,7 @@
   "welcome": "Welcome",
   "language": "Language",
   "password_phrase": "Enter your password to continue",
-   "logout": "Logout",
+  "logout": "Logout",
   "dashboardTitle": "Lake Monitoring Dashboard",
   "sensorNotFound": "Sensor Not Found",
   "backToDashboard": "Back to Dashboard",
