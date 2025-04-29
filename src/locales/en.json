@@ -18,5 +18,6 @@
   "longitude": "Longitude",
   "temperatureTrends": "Temperature Trends",
   "pHLevelTrends": "pH Level Trends",
-  "oxygenLevelTrends": "Oxygen Level Trends"
+  "oxygenLevelTrends": "Oxygen Level Trends",
+  "dashboard": "Dashboard"
 }

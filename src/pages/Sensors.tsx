@@ -6,15 +6,7 @@ import { useWebSocket } from '@/lib/websocket-context';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from "@/components/ui/input";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuLink
-} from '@/components/ui/sidebar';
+import Sidebar from '@/components/ui/navbar';
 import {
   Table,
   TableBody,
@@ -32,6 +24,7 @@ const Sensors = () => {
   const [sensors, setSensors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     const fetchSensors = async () => {
@@ -57,39 +50,54 @@ const Sensors = () => {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar defaultCollapsed={false} collapsible="icon">
-        <SidebarHeader className="py-4">
-          <h2 className="px-3 text-lg font-semibold tracking-tight">NammaLakes</h2>
-        </SidebarHeader>
-        <SidebarContent>
-          <SidebarMenu>
-          <SidebarMenuItem>
-              <SidebarMenuLink to="/dashboard">{t("Dashboard")}</SidebarMenuLink>
-            </SidebarMenuItem>
-            <SidebarMenuItem active>
-              <SidebarMenuLink to="/sensors">{t("Sensors")}</SidebarMenuLink>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuLink to="/alerts">
-                {t("Alerts")}
-              </SidebarMenuLink>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarContent>
-        <SidebarFooter className="py-2">
-          <Button variant="ghost" onClick={logout} className="w-full justify-start">
-            <LogOut className="mr-2 h-4 w-4" />
-            {t("logout")}
-          </Button>
-        </SidebarFooter>
-      </Sidebar>
+
+      {/* Mobile Sidebar */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-40 flex md:hidden">
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50"
+            onClick={() => setSidebarOpen(false)}
+          />
+          <div className="relative z-50 h-full">
+            <Sidebar onNavigate={() => setSidebarOpen(false)} />
+          </div>
+        </div>
+      )}
+
+      {/* Desktop Sidebar */}
+      <div className="hidden md:flex md:flex-col w-64 bg-card border-r border-border shrink-0 h-screen sticky top-0 overflow-auto">
+        <Sidebar />
+      </div>
 
       <div className="flex flex-col flex-1 w-full">
 
         {/* Main Content */}
         <main className="flex-1 p-4 md:p-6 overflow-auto">
+          {/* Mobile Header */}
+          <div className="md:hidden flex items-center justify-between mb-4">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="p-2 rounded-md hover:bg-muted"
+            >
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            </button>
+            <h2 className="text-xl font-bold">{t("Sensors")}</h2>
+          </div>
+
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold">{t("Sensors")}</h2>
+            <h2 className="text-2xl font-bold hidden md:block">{t("Sensors")}</h2>
           </div>
           
           {/* Search Bar */}
