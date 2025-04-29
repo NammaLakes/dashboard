@@ -13,15 +13,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { 
-  Sidebar, 
-  SidebarContent, 
-  SidebarFooter, 
-  SidebarHeader, 
-  SidebarMenu, 
-  SidebarMenuItem, 
-  SidebarMenuLink
-} from '@/components/ui/sidebar';
 
 const Dashboard = () => {
   const { logout } = useAuth();
@@ -50,51 +41,64 @@ const Dashboard = () => {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar defaultCollapsed={false} collapsible="icon">
-        <SidebarHeader className="py-4">
-          <h2 className="px-3 text-lg font-semibold tracking-tight">NammaLakes</h2>
-        </SidebarHeader>
-        <SidebarContent>
-          <SidebarMenu>
-            <SidebarMenuItem active>
-              <SidebarMenuLink to="/dashboard">{t("Dashboard")}</SidebarMenuLink>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuLink to="/sensors">{t("Sensors")}</SidebarMenuLink>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuLink to="/alerts">
-                {t("Alerts")}
-              </SidebarMenuLink>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarContent>
-        <SidebarFooter className="py-2 flex flex-col gap-2">
+      {/* Mobile-friendly sidebar */}
+      <div className="flex flex-col w-64 bg-card border-r border-border shrink-0 md:block h-screen sticky top-0 overflow-auto">
+        {/* Sidebar Header */}
+        <div className="p-4 border-b border-border">
+          <h2 className="text-lg font-semibold tracking-tight">NammaLakes</h2>
+        </div>
+        
+        {/* Sidebar Content */}
+        <div className="flex-1 py-4">
+          <nav className="space-y-1 px-2">
+        <button 
+          onClick={() => navigate('/dashboard')} 
+          className="flex items-center px-3 py-2 text-sm font-medium rounded-md bg-primary/10 text-primary hover:bg-primary/20 w-full text-left"
+        >
+          {t("Dashboard")}
+        </button>
+        <button 
+          onClick={() => navigate('/sensors')} 
+          className="flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-muted w-full text-left"
+        >
+          {t("Sensors")}
+        </button>
+        <button 
+          onClick={() => navigate('/alerts')} 
+          className="flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-muted w-full text-left"
+        >
+          {t("Alerts")}
+        </button>
+          </nav>
+        </div>
+        
+        {/* Sidebar Footer */}
+        <div className="p-4 border-t border-border space-y-2">
           {/* Language Switcher */}
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="w-full justify-start">
-                <Globe className="mr-2 h-4 w-4" />
-                {t("language")}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => changeLanguage('en')}>
-                English
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => changeLanguage('kn')}>
-                ಕನ್ನಡ
-              </DropdownMenuItem>
-            </DropdownMenuContent>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="w-full justify-start">
+            <Globe className="mr-2 h-4 w-4" />
+            {t("language")}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem onClick={() => changeLanguage('en')}>
+            English
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => changeLanguage('kn')}>
+            ಕನ್ನಡ
+          </DropdownMenuItem>
+        </DropdownMenuContent>
           </DropdownMenu>
           
           {/* Logout Button */}
           <Button variant="ghost" onClick={logout} className="w-full justify-start">
-            <LogOut className="mr-2 h-4 w-4" />
-            {t("logout")}
+        <LogOut className="mr-2 h-4 w-4" />
+        {t("logout")}
           </Button>
-        </SidebarFooter>
-      </Sidebar>
+        </div>
+      </div>
 
       <div className="flex flex-col flex-1 w-full">
         {/* Main Content */}

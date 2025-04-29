@@ -48,7 +48,7 @@ const SensorMap = ({ singleMarker }: SensorMapProps) => {
       });
 
       marker.on('click', () => {
-        navigate(`/sensor/${sensor.id}`);
+        navigate(`/sensors/${sensor.id}`);
       });
     });
 
