@@ -63,11 +63,11 @@ const Sensors = () => {
         </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuLink to="/dashboard">Dashboard</SidebarMenuLink>
+          <SidebarMenuItem>
+              <SidebarMenuLink to="/dashboard">{t("Dashboard")}</SidebarMenuLink>
             </SidebarMenuItem>
             <SidebarMenuItem active>
-              <SidebarMenuLink to="/sensors">Sensors</SidebarMenuLink>
+              <SidebarMenuLink to="/sensors">{t("Sensors")}</SidebarMenuLink>
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuLink to="/alerts">
