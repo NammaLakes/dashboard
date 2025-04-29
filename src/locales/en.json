@@ -20,5 +20,15 @@
   "pHLevelTrends": "pH Level Trends",
   "oxygenLevelTrends": "Oxygen Level Trends",
   "dashboard": "Dashboard",
-  "recentAlerts": "Recent Alerts"
+  "recentAlerts": "Recent Alerts",
+  "noAlerts": "No recent alerts",
+  "allSystemsRunning": "All systems are running smoothly",
+  "markAllResolved": "Mark all as resolved",
+  "archivedAlerts": "Archived Alerts",
+  "noArchivedAlerts": "No archived alerts",
+  "archivedAlertsEmpty": "No archived alerts available",
+  "clearArchived" : "Clear Archived Alerts",
+  "refreshAlerts": "Refresh Alerts",
+  "viewAllAlerts": "View All Alerts",
+  "filterByType": "Filter by Type"
 }

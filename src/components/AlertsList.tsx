@@ -1,10 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { mockAlerts } from "@/lib/mock-data";
-import { AlertCircle, Info, AlertTriangle, Bell, X, Filter, Loader2 } from "lucide-react";
+import { AlertCircle, Info, AlertTriangle, Bell, X, Filter, Loader2, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,21 +16,89 @@ import {
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { useWebSocket } from "@/lib/websocket-context";
+import { Alert } from "@/lib/api-service";
 
 interface AlertsListProps {
   fullPage?: boolean;
   className?: string;
+  showArchived?: boolean;
 }
-const AlertsList = ({ fullPage = false, className }: AlertsListProps) => {
-  const [alerts, setAlerts] = useState(mockAlerts);
+
+interface EnhancedAlert extends Alert {
+  id: string;
+  type: 'error' | 'warning' | 'info';
+  resolved: boolean;
+  archived: boolean;
+  resolvedAt?: number;
+}
+
+const AlertsList = ({ fullPage = false, className, showArchived = false }: AlertsListProps) => {
+  const { alerts: wsAlerts } = useWebSocket();
+  const [alerts, setAlerts] = useState<EnhancedAlert[]>([]);
   const [filter, setFilter] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { t } = useTranslation();
   const navigate = useNavigate();
   
-  const filteredAlerts = filter 
-    ? alerts.filter(alert => alert.type === filter)
-    : alerts;
+  // Process incoming alerts from WebSocket
+  useEffect(() => {
+    if (wsAlerts && wsAlerts.length > 0) {
+      const enhancedAlerts = wsAlerts.map((alert): EnhancedAlert => {
+        const id = `${alert.timestamp}-${Math.random().toString(36).substring(2, 9)}`;
+        
+        // Determine alert type based on message content
+        let type: 'error' | 'warning' | 'info' = 'info';
+        const message = alert.message.toLowerCase();
+        
+        if (message.includes('critical') || message.includes('error')) {
+          type = 'error';
+        } else if (message.includes('warning') || message.includes('exceeded') || 
+                  message.includes('maintenance') || message.includes('threshold')) {
+          type = 'warning';
+        }
+        
+        return {
+          ...alert,
+          id,
+          type,
+          resolved: false,
+          archived: false
+        };
+      });
+      
+      // Merge new alerts with existing ones, preventing duplicates
+      setAlerts(current => {
+        const existingIds = new Set(current.map(a => a.id));
+        const newAlerts = enhancedAlerts.filter(a => !existingIds.has(a.id));
+        
+        // Cleanup archived alerts that are older than 24 hours
+        const now = Date.now() / 1000;
+        const cleanedAlerts = current.filter(alert => {
+          if (alert.archived && alert.resolvedAt) {
+            // Keep if resolved less than 24 hours ago
+            return now - alert.resolvedAt < 24 * 60 * 60;
+          }
+          return true;
+        });
+        
+        return [...newAlerts, ...cleanedAlerts];
+      });
+    }
+  }, [wsAlerts]);
+  
+  // Filter alerts based on user selection and archived status
+  const filteredAlerts = alerts.filter(alert => {
+    // First filter by archived status
+    if (showArchived) {
+      if (!alert.archived) return false;
+    } else {
+      if (alert.archived) return false;
+    }
+    
+    // Then filter by alert type if a filter is set
+    return filter ? alert.type === filter : true;
+  });
   
   const alertsToShow = fullPage ? filteredAlerts : filteredAlerts.slice(0, 3);
   
@@ -46,24 +113,52 @@ const AlertsList = ({ fullPage = false, className }: AlertsListProps) => {
     }
   };
   
+  const resolveAlert = (id: string) => {
+    setAlerts(current => 
+      current.map(alert => 
+        alert.id === id 
+          ? { 
+              ...alert, 
+              resolved: true, 
+              archived: true, 
+              resolvedAt: Date.now() / 1000 
+            } 
+          : alert
+      )
+    );
+  };
+  
   const dismissAlert = (id: string) => {
     setAlerts(alerts.filter(alert => alert.id !== id));
   };
   
   const handleMarkAllAsRead = () => {
     setIsLoading(true);
-    // Simulate API call
+    
+    // Mark all visible alerts as resolved and archived
+    setAlerts(current => 
+      current.map(alert => {
+        if (filteredAlerts.some(a => a.id === alert.id)) {
+          return { 
+            ...alert, 
+            resolved: true, 
+            archived: true, 
+            resolvedAt: Date.now() / 1000 
+          };
+        }
+        return alert;
+      })
+    );
+    
     setTimeout(() => {
-      setAlerts([]);
       setIsLoading(false);
-    }, 800);
+    }, 500);
   };
   
   const handleRefresh = () => {
     setIsLoading(true);
-    // Simulate API call
+    // Just simulate a refresh delay
     setTimeout(() => {
-      setAlerts(mockAlerts);
       setIsLoading(false);
     }, 800);
   };
@@ -72,7 +167,9 @@ const AlertsList = ({ fullPage = false, className }: AlertsListProps) => {
     <Card className={cn("overflow-hidden", className)}>
       <CardHeader className="flex flex-row items-center justify-between pb-3 space-y-0">
         <div className="flex items-center gap-2">
-          <CardTitle className="text-base font-semibold">{t('recentAlerts')}</CardTitle>
+          <CardTitle className="text-base font-semibold">
+            {showArchived ? t('archivedAlerts') : t('recentAlerts')}
+          </CardTitle>
           {filteredAlerts.length > 0 && (
             <Badge variant="secondary" className="rounded-full px-2.5 py-0.5 text-xs font-medium">
               {filteredAlerts.length}
@@ -131,10 +228,10 @@ const AlertsList = ({ fullPage = false, className }: AlertsListProps) => {
               size="sm" 
               className="h-9 font-medium"
               onClick={handleMarkAllAsRead}
-              disabled={isLoading || alerts.length === 0}
+              disabled={isLoading || filteredAlerts.length === 0}
             >
               {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
-              {t('markAllRead')}
+              {showArchived ? t('clearArchived') : t('markAllResolved')}
             </Button>
           )}
           
@@ -175,7 +272,8 @@ const AlertsList = ({ fullPage = false, className }: AlertsListProps) => {
                     "flex items-center space-x-4 rounded-lg border p-4 pr-12 relative transition-all hover:bg-accent/50 shadow-soft",
                     alert.type === 'error' && "border-destructive/50 bg-destructive/5",
                     alert.type === 'warning' && "border-yellow-500/50 bg-yellow-500/5",
-                    alert.type === 'info' && "border-blue-500/50 bg-blue-500/5"
+                    alert.type === 'info' && "border-blue-500/50 bg-blue-500/5",
+                    alert.resolved && "opacity-75"
                   )}
                 >
                   <div className={cn(
@@ -188,19 +286,45 @@ const AlertsList = ({ fullPage = false, className }: AlertsListProps) => {
                   </div>
                   <div className="flex-1 space-y-1">
                     <p className="text-sm font-medium leading-tight">{alert.message}</p>
-                    <p className="text-xs font-medium text-muted-foreground">
-                      {new Date(alert.timestamp).toLocaleString()}
-                    </p>
+                    <div className="flex justify-between">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {new Date(alert.timestamp * 1000).toLocaleString()}
+                      </p>
+                      {alert.resolved && (
+                        <p className="text-xs font-medium text-green-600">
+                          {t('resolved')} {alert.resolvedAt && new Date(alert.resolvedAt * 1000).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                    {alert.node_id && (
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {t('sensor')}: {alert.node_id}
+                      </p>
+                    )}
                   </div>
-                  <Button 
-                    size="icon" 
-                    variant="ghost" 
-                    className="absolute right-2 top-2 h-7 w-7 opacity-70 hover:opacity-100 hover:bg-accent"
-                    onClick={() => dismissAlert(alert.id)}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                    <span className="sr-only">{t('dismiss')}</span>
-                  </Button>
+                  {!showArchived ? (
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      className="absolute right-2 top-2 h-7 w-7 opacity-70 hover:opacity-100 hover:bg-accent"
+                      onClick={() => resolveAlert(alert.id)}
+                      title={t('markResolved')}
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                      <span className="sr-only">{t('resolve')}</span>
+                    </Button>
+                  ) : (
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      className="absolute right-2 top-2 h-7 w-7 opacity-70 hover:opacity-100 hover:bg-accent"
+                      onClick={() => dismissAlert(alert.id)}
+                      title={t('delete')}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      <span className="sr-only">{t('delete')}</span>
+                    </Button>
+                  )}
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -209,9 +333,11 @@ const AlertsList = ({ fullPage = false, className }: AlertsListProps) => {
               <div className="rounded-full bg-primary/10 p-4">
                 <Bell className="h-7 w-7 text-primary opacity-80" />
               </div>
-              <h3 className="mt-4 text-base font-medium">{t('noAlerts')}</h3>
+              <h3 className="mt-4 text-base font-medium">
+                {showArchived ? t('noArchivedAlerts') : t('noAlerts')}
+              </h3>
               <p className="mt-2 text-sm text-muted-foreground max-w-[250px]">
-                {t('allSystemsRunning')}
+                {showArchived ? t('archivedAlertsEmpty') : t('allSystemsRunning')}
               </p>
               {fullPage && (
                 <Button 

@@ -6,7 +6,10 @@ import SensorChart from '@/components/SensorChart';
 import SensorMap from '@/components/SensorMap';
 import { useTranslation } from "react-i18next";
 import { useWebSocket } from '@/lib/websocket-context';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { fetchNodeData, fetchNodes } from '@/lib/api-service';
+import { useQuery } from '@tanstack/react-query';
+import { toast } from '@/components/ui/use-toast';
 
 interface Sensor {
   id: string;
@@ -19,48 +22,70 @@ const SensorDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { latestReadings } = useWebSocket();
 
-  const [sensor, setSensor] = useState<Sensor | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Fetch all nodes to get basic info for this node
+  const { data: nodesData, isLoading: isLoadingNodes, error: nodesError } = useQuery({
+    queryKey: ['nodes'],
+    queryFn: fetchNodes,
+    staleTime: 30000, // 30 seconds
+  });
 
-  useEffect(() => {
-    const fetchSensorDetails = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const mockSensor = (await import('@/lib/mock-data')).mockSensors.find(s => s.id === id);
-        if (mockSensor) {
-          setSensor({ id: mockSensor.id, name: mockSensor.name, location: mockSensor.location });
-        } else {
-          setError(t("sensorNotFound"));
-        }
-      } catch (err) {
-        console.error("Failed to fetch sensor details:", err);
-        setError("Failed to load sensor details.");
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Fetch detailed data for this specific node
+  const { data: nodeData, isLoading: isLoadingNodeData, error: nodeDataError } = useQuery({
+    queryKey: ['node', id],
+    queryFn: () => id ? fetchNodeData(id) : Promise.reject('No node ID provided'),
+    enabled: !!id, // Only run query if we have an ID
+    staleTime: 30000, // 30 seconds
+    refetchInterval: 60000, // Refresh every minute
+  });
 
-    if (id) {
-      fetchSensorDetails();
-    } else {
-      setError(t("sensorNotFound"));
-      setLoading(false);
+  // Find the node details
+  const currentNode = nodesData?.data.find(node => node.node_id === id);
+  
+  // Extract sensor information from the node data
+  const sensor = currentNode ? {
+    id: currentNode.node_id,
+    name: `Sensor ${currentNode.node_id}`,
+    location: {
+      lat: currentNode.latitude, 
+      lng: currentNode.longitude
     }
-  }, [id, t]);
+  } : null;
 
-  const currentReading = id ? latestReadings[id] : null;
-  const sensorStatus = currentReading ? 'active' : 'inactive';
+  // Get the latest reading
+  const latestReading = currentNode ? {
+    temperature: currentNode.temperature,
+    ph: currentNode.ph,
+    oxygenLevel: currentNode.dissolved_oxygen,
+    time: currentNode.datetime
+  } : null;
 
-  if (loading) {
-    return <div className="container py-6">Loading...</div>;
+  // Determine loading and error state
+  const isLoading = isLoadingNodes || isLoadingNodeData;
+  const error = nodesError || nodeDataError;
+
+  // Show toast on error
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch sensor data. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  }, [error]);
+
+  const sensorStatus = currentNode 
+    ? currentNode.maintenance_required === 0 ? 'active' : 'maintenance' 
+    : 'inactive';
+
+  if (isLoading) {
+    return <div className="container py-6">{t("loading")}...</div>;
   }
 
   if (error || !sensor) {
     return (
       <div className="container py-6">
-        <h1 className="text-xl font-bold">{error || t("sensorNotFound")}</h1>
+        <h1 className="text-xl font-bold">{t("sensorNotFound")}</h1>
         <Link to="/dashboard">
           <Button variant="link">{t("backToDashboard")}</Button>
         </Link>
@@ -83,7 +108,7 @@ const SensorDetail = () => {
           </Link>
           <h1 className="text-2xl font-semibold">{sensor.name}</h1>
           <span className={`px-3 py-1 text-xs rounded-full ${statusColor}`}>
-            {sensorStatus.charAt(0).toUpperCase() + sensorStatus.slice(1)}
+            {t(sensorStatus)}
           </span>
         </div>
       </header>
@@ -99,7 +124,7 @@ const SensorDetail = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    {currentReading ? `${currentReading.temperature.toFixed(1)}°C` : 'N/A'}
+                    {latestReading ? `${latestReading.temperature.toFixed(1)}°C` : 'N/A'}
                   </div>
                 </CardContent>
               </Card>
@@ -111,7 +136,7 @@ const SensorDetail = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    {currentReading ? currentReading.pH.toFixed(1) : 'N/A'}
+                    {latestReading ? latestReading.ph.toFixed(1) : 'N/A'}
                   </div>
                 </CardContent>
               </Card>
@@ -123,7 +148,7 @@ const SensorDetail = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    {currentReading ? `${currentReading.oxygenLevel.toFixed(1)} mg/L` : 'N/A'}
+                    {latestReading ? `${latestReading.oxygenLevel.toFixed(1)} mg/L` : 'N/A'}
                   </div>
                 </CardContent>
               </Card>
@@ -135,7 +160,7 @@ const SensorDetail = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-sm font-medium">
-                    {currentReading ? new Date(currentReading.time).toLocaleString() : 'N/A'}
+                    {latestReading ? new Date(latestReading.time).toLocaleString() : 'N/A'}
                   </div>
                 </CardContent>
               </Card>
@@ -149,7 +174,7 @@ const SensorDetail = () => {
                 <MapPin className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <p className="text-sm font-medium">{t("latitude")}: {sensor.location.lat}, {t("longitude")}: {sensor.location.lng}</p>
+                <p className="text-sm font-medium">{t("latitude")}: {sensor.location.lat.toFixed(4)}, {t("longitude")}: {sensor.location.lng.toFixed(4)}</p>
                 <div className="h-60 rounded-lg overflow-hidden mt-2">
                   <SensorMap singleMarker={{ lat: sensor.location.lat, lng: sensor.location.lng }} />
                 </div>
@@ -159,9 +184,24 @@ const SensorDetail = () => {
         </div>
 
         <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3">
-          <SensorChart sensorId={sensor.id} title={t("temperatureTrends")} metric="temperature" />
-          <SensorChart sensorId={sensor.id} title={t("pHLevelTrends")} metric="pH" />
-          <SensorChart sensorId={sensor.id} title={t("oxygenLevelTrends")} metric="oxygenLevel" />
+          <SensorChart 
+            sensorId={sensor.id} 
+            title={t("temperatureTrends")} 
+            metric="temperature" 
+            data={nodeData?.data || []} 
+          />
+          <SensorChart 
+            sensorId={sensor.id} 
+            title={t("pHLevelTrends")} 
+            metric="ph" 
+            data={nodeData?.data || []} 
+          />
+          <SensorChart 
+            sensorId={sensor.id} 
+            title={t("oxygenLevelTrends")} 
+            metric="dissolved_oxygen" 
+            data={nodeData?.data || []} 
+          />
         </div>
       </main>
     </div>
