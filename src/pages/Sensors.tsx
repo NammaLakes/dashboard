@@ -3,10 +3,11 @@ import { Button } from "@/components/ui/button";
 import { LogOut, Search } from 'lucide-react';
 import { useTranslation } from "react-i18next";
 import { useWebSocket } from '@/lib/websocket-context';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from "@/components/ui/input";
 import Sidebar from '@/components/ui/navbar';
+import { Node } from '@/lib/api-service';
 import {
   Table,
   TableBody,
@@ -20,33 +21,38 @@ const Sensors = () => {
   const { logout } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { latestReadings } = useWebSocket();
-  const [sensors, setSensors] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { latestReadings, isPolling } = useWebSocket();
   const [searchQuery, setSearchQuery] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  useEffect(() => {
-    const fetchSensors = async () => {
-      setLoading(true);
-      try {
-        // For now, we're using mock data
-        const { mockSensors } = await import('@/lib/mock-data');
-        setSensors(mockSensors);
-      } catch (error) {
-        console.error("Failed to fetch sensors:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchSensors();
-  }, []);
+  // Map the real-time node data to sensor objects for UI
+  const sensors = useMemo(() => {
+    return Object.values(latestReadings)
+      .filter((node): node is Node => node !== null)
+      .map((node: Node) => ({
+        id: node.node_id,
+        name: `Sensor ${node.node_id}`,
+        location: `${node.latitude}, ${node.longitude}`,
+        status: node.maintenance_required === 0 ? 'active' : 'maintenance',
+        lastReading: {
+          temperature: node.temperature,
+          ph: node.ph,
+          oxygenLevel: node.dissolved_oxygen,
+          timestamp: node.datetime
+        }
+      }));
+  }, [latestReadings]);
 
   // Filter sensors based on search query
-  const filteredSensors = sensors.filter(sensor => 
-    sensor.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredSensors = useMemo(() => {
+    return sensors.filter(sensor => 
+      sensor.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [sensors, searchQuery]);
+
+  const isLoading = useMemo(() => {
+    return sensors.length === 0 && isPolling;
+  }, [sensors.length, isPolling]);
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -114,7 +120,7 @@ const Sensors = () => {
             />
           </div>
           
-          {loading ? (
+          {isLoading ? (
             <p>{t("loading")}...</p>
           ) : filteredSensors.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-8 text-center">
@@ -137,8 +143,7 @@ const Sensors = () => {
               </TableHeader>
               <TableBody>
                 {filteredSensors.map((sensor) => {
-                  const reading = latestReadings[sensor.id];
-                  const isActive = !!reading;
+                  const isActive = sensor.status === 'active';
                   const statusColor = isActive ? 'bg-green-500/20 text-green-600' : 'bg-yellow-500/20 text-yellow-600';
                   
                   return (
@@ -150,13 +155,13 @@ const Sensors = () => {
                       <TableCell className="font-medium">{sensor.name}</TableCell>
                       <TableCell>
                         <span className={`px-2 py-1 text-xs rounded-full ${statusColor}`}>
-                          {isActive ? t("active") : t("inactive")}
+                          {isActive ? t("active") : t("maintenance")}
                         </span>
                       </TableCell>
-                      <TableCell>{reading ? `${reading.temperature.toFixed(1)}°C` : 'N/A'}</TableCell>
-                      <TableCell>{reading ? reading.pH.toFixed(1) : 'N/A'}</TableCell>
-                      <TableCell>{reading ? `${reading.oxygenLevel.toFixed(1)} mg/L` : 'N/A'}</TableCell>
-                      <TableCell>{reading ? new Date(reading.time).toLocaleString() : 'N/A'}</TableCell>
+                      <TableCell>{`${sensor.lastReading.temperature.toFixed(1)}°C`}</TableCell>
+                      <TableCell>{sensor.lastReading.ph.toFixed(1)}</TableCell>
+                      <TableCell>{`${sensor.lastReading.oxygenLevel.toFixed(1)} mg/L`}</TableCell>
+                      <TableCell>{new Date(sensor.lastReading.timestamp).toLocaleString()}</TableCell>
                     </TableRow>
                   );
                 })}

@@ -1,21 +1,42 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Thermometer, Droplet, Wind, TrendingUp, TrendingDown } from "lucide-react";
-import { mockSensors } from "@/lib/mock-data";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { useState, useEffect, useMemo } from "react";
+import { useWebSocket } from "@/lib/websocket-context";
+import { Node } from "@/lib/api-service";
 
 const MetricsCards = () => {
-  const averages = mockSensors.reduce(
-    (acc, sensor) => {
-      acc.temperature += sensor.lastReading.temperature;
-      acc.pH += sensor.lastReading.pH;
-      acc.oxygenLevel += sensor.lastReading.oxygenLevel;
-      return acc;
-    },
-    { temperature: 0, pH: 0, oxygenLevel: 0 }
-  );
-
-  const count = mockSensors.length;
+  const { latestReadings } = useWebSocket();
+  const [avgTemp, setAvgTemp] = useState(0);
+  const [avgPH, setAvgPH] = useState(0);
+  const [avgOxygen, setAvgOxygen] = useState(0);
+  
+  // Get all active nodes from the WebSocket context
+  const activeNodes = useMemo(() => {
+    return Object.values(latestReadings).filter((node): node is Node => node !== null);
+  }, [latestReadings]);
+  
+  // Calculate averages when node data updates
+  useEffect(() => {
+    if (activeNodes.length === 0) return;
+    
+    // Calculate new averages directly from the real-time data
+    const newAverages = activeNodes.reduce(
+      (acc, node) => {
+        acc.temperature += node.temperature;
+        acc.pH += node.ph;
+        acc.oxygenLevel += node.dissolved_oxygen;
+        return acc;
+      },
+      { temperature: 0, pH: 0, oxygenLevel: 0 }
+    );
+    
+    const count = activeNodes.length;
+    setAvgTemp(newAverages.temperature / count);
+    setAvgPH(newAverages.pH / count);
+    setAvgOxygen(newAverages.oxygenLevel / count);
+  }, [activeNodes]);
   
   const getTemperatureStatus = (value: number) => {
     if (value < 10) return { color: "text-blue-500", icon: TrendingDown, trend: -5 };
@@ -34,10 +55,6 @@ const MetricsCards = () => {
     if (value > 12) return { color: "text-yellow-500", icon: TrendingUp, trend: 4 };
     return { color: "text-green-500", icon: TrendingUp, trend: 2 };
   };
-  
-  const avgTemp = averages.temperature / count;
-  const avgPH = averages.pH / count;
-  const avgOxygen = averages.oxygenLevel / count;
 
   const tempStatus = getTemperatureStatus(avgTemp);
   const phStatus = getpHStatus(avgPH);

@@ -1,101 +1,326 @@
-// filepath: dashboard/src/lib/websocket-context.tsx
-import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
-
-interface SensorReading {
-  time: string;
-  temperature: number;
-  pH: number;
-  oxygenLevel: number;
-  node_id: string; // Assuming the backend sends the node_id
-}
+import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from 'react';
+import { Alert, alertWebsocketManager, Node, SensorData, fetchNodes } from './api-service';
+import { toast } from '@/components/ui/use-toast';
+import { 
+  getCachedNodes, cacheNodes, getCachedAlerts, cacheAlerts, 
+  EnhancedNode, EnhancedAlert, getAlertType, generateAlertId
+} from './utils';
 
 interface WebSocketContextProps {
-  latestReadings: Record<string, SensorReading | null>; // Store latest reading per node_id
-  historicalData: Record<string, SensorReading[]>; // Store recent history per node_id
+  latestReadings: Record<string, Node | null>; // Store latest reading per node_id
+  historicalData: Record<string, SensorData[]>; // Store recent history per node_id
+  alerts: EnhancedAlert[]; // Store alerts from WebSocket
+  isPolling: boolean; // Whether the background polling is active
+  resolveAlert: (alertId: string) => void; // Function to resolve an alert
+  archivedAlerts: EnhancedAlert[]; // Store archived alerts
 }
 
 const WebSocketContext = createContext<WebSocketContextProps | undefined>(undefined);
 
-// Determine WebSocket URL based on environment (adjust as needed)
-const WS_URL = process.env.NODE_ENV === 'production'
-  ? 'wss://your-production-domain.com/api/monitoring/ws' // Replace with your production WS URL
-  : `ws://${window.location.hostname}:8000/api/monitoring/ws`; // Updated path
-
-const MAX_HISTORY = 50; // Keep the last 50 readings per sensor
-
 export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
-  const [latestReadings, setLatestReadings] = useState<Record<string, SensorReading | null>>({});
-  const [historicalData, setHistoricalData] = useState<Record<string, SensorReading[]>>({});
-  const [isConnected, setIsConnected] = useState(false);
+  const [latestReadings, setLatestReadings] = useState<Record<string, Node | null>>({});
+  const [historicalData, setHistoricalData] = useState<Record<string, SensorData[]>>({});
+  const [alerts, setAlerts] = useState<EnhancedAlert[]>([]);
+  const [archivedAlerts, setArchivedAlerts] = useState<EnhancedAlert[]>([]);
+  const [isPolling, setIsPolling] = useState(true);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const cachedNodesRef = useRef<Record<string, EnhancedNode>>({});
 
-  const connectWebSocket = useCallback(() => {
-    console.log(`Attempting to connect to WebSocket at ${WS_URL}`); // Log will show the new URL
-    const ws = new WebSocket(WS_URL);
+  // Initial load of cached data
+  useEffect(() => {
+    // Load cached nodes
+    const nodes = getCachedNodes();
+    cachedNodesRef.current = nodes;
+    
+    // Convert cached nodes to the format expected by components
+    const convertedNodes: Record<string, Node | null> = {};
+    Object.entries(nodes).forEach(([nodeId, node]) => {
+      convertedNodes[nodeId] = node;
+    });
+    
+    if (Object.keys(convertedNodes).length > 0) {
+      setLatestReadings(convertedNodes);
+    }
+    
+    // Load cached alerts
+    const { active, archived } = getCachedAlerts();
+    if (active.length > 0) {
+      setAlerts(active);
+    }
+    if (archived.length > 0) {
+      setArchivedAlerts(archived);
+    }
+  }, []);
 
-    ws.onopen = () => {
-      console.log('WebSocket Connected');
-      setIsConnected(true);
+  // Save alerts to localStorage whenever they change
+  useEffect(() => {
+    cacheAlerts(alerts, archivedAlerts);
+  }, [alerts, archivedAlerts]);
+
+  // Handler for incoming alerts from WebSocket
+  const handleAlert = useCallback((alert: Alert) => {
+    console.log('Processing alert in WebSocketContext:', alert);
+    
+    // Add timestamp if not present
+    const alertWithTimestamp = {
+      ...alert,
+      datetime: alert.datetime || new Date().toISOString()
     };
-
-    ws.onmessage = (event) => {
-      console.log("Raw WebSocket message received:", event.data); // <-- Add this line
-      try {
-        const message = JSON.parse(event.data);
-        // Assuming message format: { node_id: string, timestamp: string, payload: { temperature: number, pH: number, oxygenLevel: number } }
-        // Or potentially just alert strings as currently implemented in backend/lakewatch/web/api/monitoring/views.py
-        // *** Adjust parsing based on the actual data format sent by the backend ***
-        if (typeof message === 'object' && message.node_id && message.payload) {
-           const reading: SensorReading = {
-             node_id: message.node_id,
-             time: message.timestamp || new Date().toISOString(), // Use timestamp from message or current time
-             temperature: message.payload.temperature,
-             pH: message.payload.pH,
-             oxygenLevel: message.payload.oxygenLevel,
-           };
-           console.log("Processed sensor reading:", reading); // <-- Add this line
-
-           setLatestReadings(prev => ({ ...prev, [reading.node_id]: reading }));
-           setHistoricalData(prev => {
-             const history = prev[reading.node_id] || [];
-             const newHistory = [...history, reading].slice(-MAX_HISTORY); // Add new reading and trim
-             return { ...prev, [reading.node_id]: newHistory };
-           });
-
-        } else if (typeof message === 'string') {
-          // Handle simple alert strings if needed (e.g., show a toast notification)
-          console.log("Received alert string:", message);
-          // Example: toast(message); // Requires integrating a toast library like sonner
+    
+    // Create enhanced alert with additional properties
+    const enhancedAlert: EnhancedAlert = {
+      ...alertWithTimestamp,
+      id: generateAlertId(alertWithTimestamp),
+      type: getAlertType(alertWithTimestamp.message || ''),
+      resolved: false,
+      archived: false
+    };
+    
+    // Update alerts state
+    setAlerts(prev => {
+      // Check for duplicates based on ID
+      const isDuplicate = prev.some(a => a.id === enhancedAlert.id);
+      
+      if (isDuplicate) {
+        console.log('Duplicate alert detected, not adding to state');
+        return prev;
+      }
+      
+      console.log('Adding new alert to state');
+      
+      // If this alert is associated with a node, update the node's alert status
+      if (enhancedAlert.node_id) {
+        const nodeId = enhancedAlert.node_id;
+        const cachedNodes = cachedNodesRef.current;
+        
+        if (cachedNodes[nodeId]) {
+          // Update the node with alert information
+          const updatedNode: EnhancedNode = {
+            ...cachedNodes[nodeId],
+            hasAlert: true,
+            alertIds: [...(cachedNodes[nodeId].alertIds || []), enhancedAlert.id]
+          };
+          
+          cachedNodesRef.current[nodeId] = updatedNode;
+          
+          // Update the cached nodes in localStorage
+          cacheNodes(cachedNodesRef.current);
+          
+          // Also update the latestReadings state to reflect the change immediately
+          setLatestReadings(prev => ({
+            ...prev,
+            [nodeId]: updatedNode
+          }));
         }
-      } catch (error) {
-        console.error('Failed to parse WebSocket message:', event.data, error);
+      }
+      
+      return [enhancedAlert, ...prev];
+    });
+    
+    // Show a toast notification for new alerts
+    toast({
+      title: 'New Alert',
+      description: alertWithTimestamp.message,
+      variant: 'destructive',
+    });
+    
+    console.log('Alert processed successfully');
+  }, []);
+
+  // Background polling for node data
+  const pollNodeData = useCallback(async () => {
+    try {
+      const response = await fetchNodes();
+      const nodes = response.data;
+      
+      // Update latestReadings with the fresh data
+      const newReadings: Record<string, Node | null> = {};
+      const cachedNodes = {...cachedNodesRef.current};
+      
+      nodes.forEach(node => {
+        const nodeId = node.node_id;
+        
+        // Check if this node already exists in our cache
+        const existingNode = cachedNodes[nodeId];
+        
+        // Create an enhanced node with alert status preserved from cache if it exists
+        const enhancedNode = {
+          ...node,
+          hasAlert: existingNode?.hasAlert ?? false,
+          alertIds: existingNode?.alertIds ?? []
+        };
+        
+        // Store in new readings and update cached nodes
+        newReadings[nodeId] = enhancedNode;
+        cachedNodes[nodeId] = enhancedNode;
+        
+        // Also update historical data
+        setHistoricalData(prev => {
+          const prevNodeData = prev[nodeId] || [];
+          
+          // Check if this reading is different from the last one
+          const lastReading = prevNodeData[0];
+          const isNewReading = !lastReading || 
+            lastReading.timestamp !== node.timestamp || 
+            lastReading.temperature !== node.temperature || 
+            lastReading.ph !== node.ph || 
+            lastReading.dissolved_oxygen !== node.dissolved_oxygen;
+          
+          if (isNewReading) {
+            // Convert Node to SensorData format
+            const sensorData: SensorData = {
+              node_id: nodeId,
+              timestamp: node.timestamp,
+              datetime: node.datetime,
+              temperature: node.temperature,
+              ph: node.ph,
+              dissolved_oxygen: node.dissolved_oxygen
+            };
+            
+            // Add to the beginning and keep only the last 100 readings
+            return {
+              ...prev,
+              [nodeId]: [sensorData, ...prevNodeData].slice(0, 100)
+            };
+          }
+          
+          return prev;
+        });
+      });
+      
+      // Update cached nodes ref and localStorage
+      cachedNodesRef.current = cachedNodes;
+      cacheNodes(cachedNodes);
+      
+      // Update state with new readings
+      setLatestReadings(prev => {
+        // Deep compare to prevent unnecessary re-renders
+        const hasChanges = JSON.stringify(prev) !== JSON.stringify(newReadings);
+        return hasChanges ? newReadings : prev;
+      });
+      
+    } catch (error) {
+      console.error('Error polling node data:', error);
+      // Don't show toast on every failed poll to avoid spam
+    }
+  }, []);
+
+  // Function to resolve an alert
+  const resolveAlert = useCallback((alertId: string) => {
+    const now = Date.now() / 1000;
+    
+    // Find the alert
+    setAlerts(prevAlerts => {
+      const alertIndex = prevAlerts.findIndex(a => a.id === alertId);
+      if (alertIndex === -1) return prevAlerts;
+      
+      const alert = prevAlerts[alertIndex];
+      
+      // Create a resolved version of the alert
+      const resolvedAlert: EnhancedAlert = {
+        ...alert,
+        resolved: true,
+        archived: true,
+        resolvedAt: now
+      };
+      
+      // Remove from active alerts
+      const newAlerts = [...prevAlerts];
+      newAlerts.splice(alertIndex, 1);
+      
+      // Add to archived alerts
+      setArchivedAlerts(prev => [resolvedAlert, ...prev]);
+      
+      // If the alert is associated with a node, update the node's alert status
+      if (alert.node_id) {
+        const nodeId = alert.node_id;
+        const cachedNodes = {...cachedNodesRef.current};
+        
+        if (cachedNodes[nodeId]) {
+          // Get all active alerts for this node
+          const nodeActiveAlerts = newAlerts.filter(a => 
+            a.node_id === nodeId && !a.resolved
+          );
+          
+          // If no more active alerts, clear the node's alert status
+          if (nodeActiveAlerts.length === 0) {
+            const updatedNode: EnhancedNode = {
+              ...cachedNodes[nodeId],
+              hasAlert: false,
+              alertIds: []
+            };
+            
+            cachedNodes[nodeId] = updatedNode;
+            cachedNodesRef.current = cachedNodes;
+            
+            // Update localStorage
+            cacheNodes(cachedNodes);
+            
+            // Update latestReadings state
+            setLatestReadings(prev => ({
+              ...prev,
+              [nodeId]: updatedNode
+            }));
+          } else {
+            // Update the node's alertIds list
+            const updatedNode: EnhancedNode = {
+              ...cachedNodes[nodeId],
+              alertIds: nodeActiveAlerts.map(a => a.id)
+            };
+            
+            cachedNodes[nodeId] = updatedNode;
+            cachedNodesRef.current = cachedNodes;
+            
+            // Update localStorage
+            cacheNodes(cachedNodes);
+          }
+        }
+      }
+      
+      return newAlerts;
+    });
+  }, []);
+
+  // Start the background polling service
+  useEffect(() => {
+    // Initial fetch
+    pollNodeData();
+    
+    // Set up polling interval (every 5 seconds)
+    pollingIntervalRef.current = setInterval(pollNodeData, 5000);
+    
+    // Clean up on unmount
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
       }
     };
+  }, [pollNodeData]);
 
-    ws.onerror = (error) => {
-      console.error('WebSocket Error:', error);
-    };
-
-    ws.onclose = () => {
-      console.log('WebSocket Disconnected');
-      setIsConnected(false);
-      // Optional: Attempt to reconnect after a delay
-      setTimeout(connectWebSocket, 5000);
-    };
-
-    // Cleanup function to close WebSocket when component unmounts
-    return () => {
-      ws.close();
-    };
-  }, []); // WS_URL is constant within the module scope, no need to add as dependency
-
+  // Connect to WebSocket on component mount
   useEffect(() => {
-    const cleanup = connectWebSocket();
-    return cleanup; // Ensure cleanup is called on unmount
-  }, [connectWebSocket]);
-
+    console.log('Connecting to WebSocket for alerts...');
+    
+    // Connect to alert WebSocket
+    alertWebsocketManager.connect(handleAlert);
+    
+    // Clean up on unmount
+    return () => {
+      console.log('Disconnecting from WebSocket');
+      alertWebsocketManager.disconnect();
+    };
+  }, [handleAlert]);
 
   return (
-    <WebSocketContext.Provider value={{ latestReadings, historicalData }}>
+    <WebSocketContext.Provider value={{ 
+      latestReadings, 
+      historicalData, 
+      alerts, 
+      isPolling, 
+      resolveAlert,
+      archivedAlerts
+    }}>
       {children}
     </WebSocketContext.Provider>
   );

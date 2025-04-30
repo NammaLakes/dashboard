@@ -1,15 +1,17 @@
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Area, AreaChart } from "recharts";
+import { AreaChart, Area, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useWebSocket } from "@/lib/websocket-context";
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Thermometer, Droplet, Wind } from "lucide-react";
+import { SensorData } from "@/lib/api-service";
 
 interface SensorChartProps {
   sensorId?: string;
   title?: string;
-  metric?: 'temperature' | 'pH' | 'oxygenLevel';
+  metric?: 'temperature' | 'ph' | 'dissolved_oxygen';
   className?: string;
+  data?: SensorData[];
 }
 
 interface ChartDataPoint {
@@ -17,38 +19,59 @@ interface ChartDataPoint {
   value: number | null;
 }
 
-const SensorChart = ({ sensorId, title = "Sensor Readings", metric = 'temperature', className }: SensorChartProps) => {
+const SensorChart = ({ 
+  sensorId, 
+  title = "Sensor Readings", 
+  metric = 'temperature', 
+  className, 
+  data 
+}: SensorChartProps) => {
   const { historicalData } = useWebSocket();
 
   const chartData: ChartDataPoint[] = useMemo(() => {
+    // If API data is provided, use it instead of WebSocket data
+    if (data && data.length > 0) {
+      return data.map(reading => ({
+        time: reading.datetime,
+        value: reading[metric] ?? null,
+      })).sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+    }
+    
+    // Otherwise, fall back to WebSocket data if available
     const sensorHistory = sensorId ? historicalData[sensorId] : undefined;
 
-    if (!sensorHistory) {
+    if (!sensorHistory || sensorHistory.length === 0) {
       if (!sensorId) {
         const allReadings = Object.values(historicalData).flat();
         if (!allReadings.length) return [];
 
+        // Aggregate readings from all sensors
         const aggregated = allReadings.reduce((acc, reading) => {
-          const timeKey = new Date(reading.time).toLocaleTimeString();
-          if (!acc[timeKey]) acc[timeKey] = { time: reading.time, sum: 0, count: 0 };
-          acc[timeKey].sum += reading[metric] ?? 0;
-          acc[timeKey].count++;
+          const timeKey = new Date(reading.timestamp).toLocaleTimeString();
+          if (!acc[timeKey]) acc[timeKey] = { time: reading.datetime || new Date(reading.timestamp).toISOString(), sum: 0, count: 0 };
+          const value = reading[metric];
+          if (value !== undefined && value !== null) {
+            acc[timeKey].sum += value;
+            acc[timeKey].count++;
+          }
           return acc;
         }, {} as Record<string, { time: string, sum: number, count: number }>);
 
-        return Object.values(aggregated).map(agg => ({
-          time: agg.time,
-          value: agg.count > 0 ? agg.sum / agg.count : null
-        })).sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+        return Object.values(aggregated)
+          .map(agg => ({
+            time: agg.time,
+            value: agg.count > 0 ? agg.sum / agg.count : null
+          }))
+          .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
       }
       return [];
     }
 
     return sensorHistory.map(reading => ({
-      time: reading.time,
+      time: reading.datetime || new Date(reading.timestamp).toISOString(),
       value: reading[metric] ?? null,
-    }));
-  }, [historicalData, sensorId, metric]);
+    })).sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+  }, [historicalData, sensorId, metric, data]);
 
   const metricConfig = useMemo(() => {
     switch (metric) {
@@ -62,7 +85,7 @@ const SensorChart = ({ sensorId, title = "Sensor Readings", metric = 'temperatur
           color: 'text-blue-600',
           bgColor: 'bg-blue-50 dark:bg-blue-900/20',
         };
-      case 'pH': 
+      case 'ph': 
         return {
           stroke: '#16a34a',
           fill: '#dcfce7',
@@ -72,7 +95,7 @@ const SensorChart = ({ sensorId, title = "Sensor Readings", metric = 'temperatur
           color: 'text-green-600',
           bgColor: 'bg-green-50 dark:bg-green-900/20',
         };
-      case 'oxygenLevel': 
+      case 'dissolved_oxygen': 
         return {
           stroke: '#f97316',
           fill: '#fff7ed',
@@ -96,15 +119,18 @@ const SensorChart = ({ sensorId, title = "Sensor Readings", metric = 'temperatur
   }, [metric]);
 
   const MetricIcon = metricConfig.icon;
+  
+  // Get the latest reading for display in the header
+  const latestValue = chartData.length > 0 ? chartData[chartData.length - 1]?.value : null;
 
   return (
     <Card className={cn("overflow-hidden shadow-soft", className)}>
       <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
         <div className="space-y-1">
           <CardTitle className="text-base font-semibold">{title || `${metricConfig.label} Readings`}</CardTitle>
-          {chartData.length > 0 && (
+          {latestValue !== null && (
             <CardDescription className="text-sm">
-              Latest: {chartData[chartData.length - 1]?.value?.toFixed(1)}{metricConfig.unit}
+              Latest: {latestValue.toFixed(1)}{metricConfig.unit}
             </CardDescription>
           )}
         </div>
