@@ -6,8 +6,8 @@ import SensorChart from '@/components/SensorChart';
 import SensorMap from '@/components/SensorMap';
 import { useTranslation } from "react-i18next";
 import { useWebSocket } from '@/lib/websocket-context';
-import { useEffect } from 'react';
-import { fetchNodeData, fetchNodes } from '@/lib/api-service';
+import { useEffect, useMemo } from 'react';
+import { fetchNodeData } from '@/lib/api-service';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from '@/components/ui/use-toast';
 
@@ -20,16 +20,15 @@ interface Sensor {
 const SensorDetail = () => {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
-  const { latestReadings } = useWebSocket();
+  const { latestReadings, historicalData } = useWebSocket();
 
-  // Fetch all nodes to get basic info for this node
-  const { data: nodesData, isLoading: isLoadingNodes, error: nodesError } = useQuery({
-    queryKey: ['nodes'],
-    queryFn: fetchNodes,
-    staleTime: 30000, // 30 seconds
-  });
-
-  // Fetch detailed data for this specific node
+  // Get current node from the WebSocket context's real-time data
+  const currentNode = useMemo(() => {
+    if (!id) return null;
+    return latestReadings[id] || null;
+  }, [latestReadings, id]);
+  
+  // Fetch detailed historical data for this specific node (still needed for charts)
   const { data: nodeData, isLoading: isLoadingNodeData, error: nodeDataError } = useQuery({
     queryKey: ['node', id],
     queryFn: () => id ? fetchNodeData(id) : Promise.reject('No node ID provided'),
@@ -37,52 +36,59 @@ const SensorDetail = () => {
     staleTime: 30000, // 30 seconds
     refetchInterval: 60000, // Refresh every minute
   });
-
-  // Find the node details
-  const currentNode = nodesData?.data.find(node => node.node_id === id);
   
   // Extract sensor information from the node data
-  const sensor = currentNode ? {
-    id: currentNode.node_id,
-    name: `Sensor ${currentNode.node_id}`,
-    location: {
-      lat: currentNode.latitude, 
-      lng: currentNode.longitude
-    }
-  } : null;
+  const sensor = useMemo(() => {
+    if (!currentNode) return null;
+    
+    return {
+      id: currentNode.node_id,
+      name: `Sensor ${currentNode.node_id}`,
+      location: {
+        lat: currentNode.latitude, 
+        lng: currentNode.longitude
+      }
+    };
+  }, [currentNode]);
 
   // Get the latest reading
-  const latestReading = currentNode ? {
-    temperature: currentNode.temperature,
-    ph: currentNode.ph,
-    oxygenLevel: currentNode.dissolved_oxygen,
-    time: currentNode.datetime
-  } : null;
+  const latestReading = useMemo(() => {
+    if (!currentNode) return null;
+    
+    return {
+      temperature: currentNode.temperature,
+      ph: currentNode.ph,
+      oxygenLevel: currentNode.dissolved_oxygen,
+      time: currentNode.datetime
+    };
+  }, [currentNode]);
 
   // Determine loading and error state
-  const isLoading = isLoadingNodes || isLoadingNodeData;
-  const error = nodesError || nodeDataError;
+  const isLoading = useMemo(() => {
+    return !currentNode && isLoadingNodeData;
+  }, [currentNode, isLoadingNodeData]);
 
   // Show toast on error
   useEffect(() => {
-    if (error) {
+    if (nodeDataError) {
       toast({
         title: 'Error',
-        description: 'Failed to fetch sensor data. Please try again.',
+        description: 'Failed to fetch sensor historical data. Please try again.',
         variant: 'destructive',
       });
     }
-  }, [error]);
+  }, [nodeDataError]);
 
-  const sensorStatus = currentNode 
-    ? currentNode.maintenance_required === 0 ? 'active' : 'maintenance' 
-    : 'inactive';
+  const sensorStatus = useMemo(() => {
+    if (!currentNode) return 'inactive';
+    return currentNode.maintenance_required === 0 ? 'active' : 'maintenance';
+  }, [currentNode]);
 
   if (isLoading) {
     return <div className="container py-6">{t("loading")}...</div>;
   }
 
-  if (error || !sensor) {
+  if (!sensor) {
     return (
       <div className="container py-6">
         <h1 className="text-xl font-bold">{t("sensorNotFound")}</h1>

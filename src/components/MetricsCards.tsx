@@ -2,30 +2,27 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Thermometer, Droplet, Wind, TrendingUp, TrendingDown } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { useState, useEffect } from "react";
-import { fetchNodes, Node } from "@/lib/api-service";
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect, useMemo } from "react";
+import { useWebSocket } from "@/lib/websocket-context";
+import { Node } from "@/lib/api-service";
 
 const MetricsCards = () => {
+  const { latestReadings } = useWebSocket();
   const [avgTemp, setAvgTemp] = useState(0);
   const [avgPH, setAvgPH] = useState(0);
   const [avgOxygen, setAvgOxygen] = useState(0);
   
-  // Fetch nodes directly using React Query
-  const { data } = useQuery({
-    queryKey: ['nodes'],
-    queryFn: fetchNodes,
-    refetchInterval: 30000, // Refetch every 30 seconds
-    staleTime: 15000, // Consider data stale after 15 seconds
-  });
+  // Get all active nodes from the WebSocket context
+  const activeNodes = useMemo(() => {
+    return Object.values(latestReadings).filter((node): node is Node => node !== null);
+  }, [latestReadings]);
   
   // Calculate averages when node data updates
   useEffect(() => {
-    if (!data || !data.data || data.data.length === 0) return;
+    if (activeNodes.length === 0) return;
     
-    // Calculate new averages directly from the API data
-    const readings = data.data;
-    const newAverages = readings.reduce(
+    // Calculate new averages directly from the real-time data
+    const newAverages = activeNodes.reduce(
       (acc, node) => {
         acc.temperature += node.temperature;
         acc.pH += node.ph;
@@ -35,11 +32,11 @@ const MetricsCards = () => {
       { temperature: 0, pH: 0, oxygenLevel: 0 }
     );
     
-    const count = readings.length;
+    const count = activeNodes.length;
     setAvgTemp(newAverages.temperature / count);
     setAvgPH(newAverages.pH / count);
     setAvgOxygen(newAverages.oxygenLevel / count);
-  }, [data]);
+  }, [activeNodes]);
   
   const getTemperatureStatus = (value: number) => {
     if (value < 10) return { color: "text-blue-500", icon: TrendingDown, trend: -5 };

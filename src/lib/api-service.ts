@@ -15,6 +15,9 @@ export interface Node {
   ph: number;
   dissolved_oxygen: number;
   maintenance_required: number;
+  // Add these properties for alert status tracking
+  hasAlert?: boolean;
+  alertIds?: string[];
 }
 
 export interface NodesResponse {

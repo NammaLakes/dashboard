@@ -3,13 +3,11 @@ import { Button } from "@/components/ui/button";
 import { LogOut, Search } from 'lucide-react';
 import { useTranslation } from "react-i18next";
 import { useWebSocket } from '@/lib/websocket-context';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from "@/components/ui/input";
 import Sidebar from '@/components/ui/navbar';
-import { fetchNodes, Node } from '@/lib/api-service';
-import { useQuery } from '@tanstack/react-query';
-import { toast } from '@/components/ui/use-toast';
+import { Node } from '@/lib/api-service';
 import {
   Table,
   TableBody,
@@ -23,47 +21,38 @@ const Sensors = () => {
   const { logout } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { latestReadings } = useWebSocket();
+  const { latestReadings, isPolling } = useWebSocket();
   const [searchQuery, setSearchQuery] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Fetch nodes using React Query
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['nodes'],
-    queryFn: fetchNodes,
-    refetchInterval: 30000, // Refetch every 30 seconds
-    staleTime: 15000, // Consider data stale after 15 seconds
-  });
-
-  // Map the API nodes to sensor objects expected by the UI
-  const sensors = data?.data.map((node: Node) => ({
-    id: node.node_id,
-    name: `Sensor ${node.node_id}`,
-    location: `${node.latitude}, ${node.longitude}`,
-    status: node.maintenance_required === 0 ? 'active' : 'maintenance',
-    lastReading: {
-      temperature: node.temperature,
-      ph: node.ph,
-      oxygenLevel: node.dissolved_oxygen,
-      timestamp: node.datetime
-    }
-  })) || [];
-
-  // Show toast on error
-  useEffect(() => {
-    if (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to fetch sensor data. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  }, [error]);
+  // Map the real-time node data to sensor objects for UI
+  const sensors = useMemo(() => {
+    return Object.values(latestReadings)
+      .filter((node): node is Node => node !== null)
+      .map((node: Node) => ({
+        id: node.node_id,
+        name: `Sensor ${node.node_id}`,
+        location: `${node.latitude}, ${node.longitude}`,
+        status: node.maintenance_required === 0 ? 'active' : 'maintenance',
+        lastReading: {
+          temperature: node.temperature,
+          ph: node.ph,
+          oxygenLevel: node.dissolved_oxygen,
+          timestamp: node.datetime
+        }
+      }));
+  }, [latestReadings]);
 
   // Filter sensors based on search query
-  const filteredSensors = sensors.filter(sensor => 
-    sensor.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredSensors = useMemo(() => {
+    return sensors.filter(sensor => 
+      sensor.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [sensors, searchQuery]);
+
+  const isLoading = useMemo(() => {
+    return sensors.length === 0 && isPolling;
+  }, [sensors.length, isPolling]);
 
   return (
     <div className="flex min-h-screen bg-background">

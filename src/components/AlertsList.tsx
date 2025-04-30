@@ -17,7 +17,7 @@ import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useWebSocket } from "@/lib/websocket-context";
-import { Alert } from "@/lib/api-service";
+import { EnhancedAlert } from "@/lib/utils";
 
 interface AlertsListProps {
   fullPage?: boolean;
@@ -25,78 +25,19 @@ interface AlertsListProps {
   showArchived?: boolean;
 }
 
-interface EnhancedAlert extends Alert {
-  id: string;
-  type: 'error' | 'warning' | 'info';
-  resolved: boolean;
-  archived: boolean;
-  resolvedAt?: number;
-}
-
 const AlertsList = ({ fullPage = false, className, showArchived = false }: AlertsListProps) => {
-  const { alerts: wsAlerts } = useWebSocket();
-  const [alerts, setAlerts] = useState<EnhancedAlert[]>([]);
+  const { alerts, archivedAlerts, resolveAlert } = useWebSocket();
   const [filter, setFilter] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { t } = useTranslation();
   const navigate = useNavigate();
   
-  // Process incoming alerts from WebSocket
-  useEffect(() => {
-    if (wsAlerts && wsAlerts.length > 0) {
-      const enhancedAlerts = wsAlerts.map((alert): EnhancedAlert => {
-        const id = `${alert.timestamp}-${Math.random().toString(36).substring(2, 9)}`;
-        
-        // Determine alert type based on message content
-        let type: 'error' | 'warning' | 'info' = 'info';
-        const message = alert.message.toLowerCase();
-        
-        if (message.includes('critical') || message.includes('error')) {
-          type = 'error';
-        } else if (message.includes('warning') || message.includes('exceeded') || 
-                  message.includes('maintenance') || message.includes('threshold')) {
-          type = 'warning';
-        }
-        
-        return {
-          ...alert,
-          id,
-          type,
-          resolved: false,
-          archived: false
-        };
-      });
-      
-      // Merge new alerts with existing ones, preventing duplicates
-      setAlerts(current => {
-        const existingIds = new Set(current.map(a => a.id));
-        const newAlerts = enhancedAlerts.filter(a => !existingIds.has(a.id));
-        
-        // Cleanup archived alerts that are older than 24 hours
-        const now = Date.now() / 1000;
-        const cleanedAlerts = current.filter(alert => {
-          if (alert.archived && alert.resolvedAt) {
-            // Keep if resolved less than 24 hours ago
-            return now - alert.resolvedAt < 24 * 60 * 60;
-          }
-          return true;
-        });
-        
-        return [...newAlerts, ...cleanedAlerts];
-      });
-    }
-  }, [wsAlerts]);
+  // Get relevant alerts based on archived status
+  const relevantAlerts = showArchived ? archivedAlerts : alerts;
   
-  // Filter alerts based on user selection and archived status
-  const filteredAlerts = alerts.filter(alert => {
-    // First filter by archived status
-    if (showArchived) {
-      if (!alert.archived) return false;
-    } else {
-      if (alert.archived) return false;
-    }
-    
-    // Then filter by alert type if a filter is set
+  // Filter alerts based on user selection
+  const filteredAlerts = relevantAlerts.filter(alert => {
+    // Filter by alert type if a filter is set
     return filter ? alert.type === filter : true;
   });
   
@@ -113,46 +54,35 @@ const AlertsList = ({ fullPage = false, className, showArchived = false }: Alert
     }
   };
   
-  const resolveAlert = (id: string) => {
-    setAlerts(current => 
-      current.map(alert => 
-        alert.id === id 
-          ? { 
-              ...alert, 
-              resolved: true, 
-              archived: true, 
-              resolvedAt: Date.now() / 1000 
-            } 
-          : alert
-      )
-    );
+  const handleResolveAlert = (id: string) => {
+    // Call the resolveAlert function from the WebSocket context
+    resolveAlert(id);
   };
   
-  const dismissAlert = (id: string) => {
-    setAlerts(alerts.filter(alert => alert.id !== id));
+  const handleDismissAlert = (id: string) => {
+    // For now, simply resolve it as it will be moved to archived
+    resolveAlert(id);
   };
   
   const handleMarkAllAsRead = () => {
     setIsLoading(true);
     
-    // Mark all visible alerts as resolved and archived
-    setAlerts(current => 
-      current.map(alert => {
-        if (filteredAlerts.some(a => a.id === alert.id)) {
-          return { 
-            ...alert, 
-            resolved: true, 
-            archived: true, 
-            resolvedAt: Date.now() / 1000 
-          };
-        }
-        return alert;
-      })
-    );
+    // Mark all visible alerts as resolved
+    const alertsToResolve = [...filteredAlerts];
     
-    setTimeout(() => {
+    // Process alerts one by one with a small delay to avoid UI freeze
+    const processAlerts = async () => {
+      for (let i = 0; i < alertsToResolve.length; i++) {
+        resolveAlert(alertsToResolve[i].id);
+        // Small delay to allow UI to update
+        if (i < alertsToResolve.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+      }
       setIsLoading(false);
-    }, 500);
+    };
+    
+    processAlerts();
   };
   
   const handleRefresh = () => {
@@ -307,7 +237,7 @@ const AlertsList = ({ fullPage = false, className, showArchived = false }: Alert
                       size="icon" 
                       variant="ghost" 
                       className="absolute right-2 top-2 h-7 w-7 opacity-70 hover:opacity-100 hover:bg-accent"
-                      onClick={() => resolveAlert(alert.id)}
+                      onClick={() => handleResolveAlert(alert.id)}
                       title={t('markResolved')}
                     >
                       <Check className="h-3.5 w-3.5" />
@@ -318,7 +248,7 @@ const AlertsList = ({ fullPage = false, className, showArchived = false }: Alert
                       size="icon" 
                       variant="ghost" 
                       className="absolute right-2 top-2 h-7 w-7 opacity-70 hover:opacity-100 hover:bg-accent"
-                      onClick={() => dismissAlert(alert.id)}
+                      onClick={() => handleDismissAlert(alert.id)}
                       title={t('delete')}
                     >
                       <X className="h-3.5 w-3.5" />
